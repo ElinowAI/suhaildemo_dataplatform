@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# dbt
+target/
+dbt_packages/
+
+# Logs
+*.log
