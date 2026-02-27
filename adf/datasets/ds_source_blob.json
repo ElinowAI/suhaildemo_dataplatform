@@ -1,0 +1,17 @@
+{
+  "name": "ds_source_blob",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "ls_blob",
+      "type": "LinkedServiceReference"
+    },
+    "type": "Binary",
+    "typeProperties": {
+      "location": {
+        "type": "AzureBlobStorageLocation",
+        "container": "source",
+        "fileName": "input.json"
+      }
+    }
+  }
+}
