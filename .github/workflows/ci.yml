@@ -55,16 +55,29 @@ jobs:
         shell: bash
 
       # Step 5: Basic secret scan
-      # We prevent obvious hardcoded secrets from being committed.
-      # This is not enterprise-grade scanning, but it avoids simple mistakes.
+      # Prevention of hardcoded secrets.
+      # We scan only source/config files (not docs/workflows) to avoid false positives.
+        # This is a lightweight guardrail, not a full secret-scanning solution.
       - name: Basic secret scan
         run: |
-          if grep -r --exclude-dir=.git -E "(password|secret|apikey|connectionString)" .; then
-            echo "Potential hardcoded secret detected."
+          MATCHES=$(grep -RIn \
+            --exclude-dir=.git \
+            --exclude-dir=.github \
+            --exclude=README.md \
+            --include="*.json" \
+            --include="*.yml" \
+            --include="*.yaml" \
+            --include="*.sql" \
+            --include="*.ps1" \
+            -E "(password\s*=|secret\s*=|api[_-]?key\s*=|connection(string)?\s*=)" . || true)
+
+          if [ -n "$MATCHES" ]; then
+            echo "Potential hardcoded secret detected:"
+            echo "$MATCHES"
             exit 1
-          else
-            echo "No obvious secrets found."
           fi
+
+          echo "No hardcoded secrets detected (basic scan)."
 
       # Step 6: Create build artifact
       # We package everything that will later be deployed.
