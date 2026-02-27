@@ -62,7 +62,9 @@ jobs:
             --include="*.yaml" \
             --include="*.sql" \
             --include="*.ps1" \
-            -E "(password\s*=|secret\s*=|api[_-]?key\s*=|connection(string)?\s*=)" . || true)
+            -E "(password\s*=|secret\s*=|api[_-]?key\s*=|connection(string)?\s*=)" . \
+            | grep -v "@Microsoft.KeyVault(" \
+            || true)
 
           if [ -n "$MATCHES" ]; then
             echo "Potential hardcoded secret detected:"

@@ -1,0 +1,9 @@
+{
+  "name": "ls_blob",
+  "properties": {
+    "type": "AzureBlobStorage",
+    "typeProperties": {
+      "connectionString": "@Microsoft.KeyVault(SecretName=blob-connection-string)"
+    }
+  }
+}

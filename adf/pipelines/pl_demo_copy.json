@@ -1,0 +1,45 @@
+{
+  "name": "pl_demo_copy",
+  "properties": {
+    "parameters": {
+      "pRunId": {
+        "type": "String",
+        "defaultValue": "demo"
+      }
+    },
+    "activities": [
+      {
+        "name": "Copy_Source_To_Sink",
+        "type": "Copy",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "source": {
+            "type": "BinarySource"
+          },
+          "sink": {
+            "type": "BinarySink"
+          }
+        },
+        "inputs": [
+          {
+            "referenceName": "ds_source_blob",
+            "type": "DatasetReference"
+          }
+        ],
+        "outputs": [
+          {
+            "referenceName": "ds_sink_blob",
+            "type": "DatasetReference"
+          }
+        ]
+      }
+    ]
+  }
+}
