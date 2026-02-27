@@ -7,11 +7,12 @@ on:
 
 permissions:
   contents: write
+  actions: read
   pull-requests: read
 
 jobs:
   deploy-dev:
-    # Run only when CI succeeds and the CI run was for env/dev
+    # Run only when CI succeeds AND the CI run was for env/dev branch
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'env/dev'
@@ -32,62 +33,64 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           name: build_${{ github.event.workflow_run.head_sha }}
           path: ./artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Unzip artifact
+        shell: bash
         run: |
           ls -la ./artifact
-          unzip -q ./artifact/build_${{ github.event.workflow_run.head_sha }}.zip -d ./artifact/unzipped
+          unzip -q "./artifact/build_${{ github.event.workflow_run.head_sha }}.zip" -d ./artifact/unzipped
           ls -la ./artifact/unzipped
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # --- REAL "DEPLOYMENT" FOR DEMO (ADF JSON validation) ---
-      # This is the part you can demo confidently:
-      # "CD reuses the CI artifact and validates ADF JSON assets before deploying."
+      # --- DEMO DEPLOYMENT GATE: Validate ADF JSON from the CI artifact ---
       - name: Validate ADF folder exists in the artifact
+        shell: bash
         run: |
-          test -d ./artifact/unzipped/build_output/adf || (echo "Missing adf/ in artifact build_output" && exit 1)
-          echo "ADF folder found ✅"
+          test -d "./artifact/unzipped/build_output/adf" || (echo "Missing adf/ in artifact build_output" && exit 1)
+          echo "ADF folder found"
 
       - name: Validate ADF JSON syntax (demo deploy gate)
+        shell: bash
         run: |
-          COUNT=$(find ./artifact/unzipped/build_output/adf -type f -name "*.json" | wc -l)
+          COUNT=$(find "./artifact/unzipped/build_output/adf" -type f -name "*.json" | wc -l | tr -d ' ')
           echo "ADF JSON files found: $COUNT"
 
           if [ "$COUNT" -eq 0 ]; then
-            echo "No ADF JSON found under adf/. Add at least one JSON (pipeline/dataset/linkedService) for the demo."
+            echo "No ADF JSON found under adf/. Add at least one JSON for the demo."
             exit 1
           fi
 
-          find ./artifact/unzipped/build_output/adf -type f -name "*.json" -print0 | while IFS= read -r -d '' file; do
+          find "./artifact/unzipped/build_output/adf" -type f -name "*.json" -print0 | while IFS= read -r -d '' file; do
             echo "Validating $file"
             jq empty "$file" || exit 1
           done
 
-          echo "ADF JSON validation passed ✅"
+          echo "ADF JSON validation passed"
 
       - name: DEV deployment summary (demo)
         run: |
           echo "Deploying artifact build_${{ github.event.workflow_run.head_sha }} to DEV..."
-          echo "- Artifact reused from CI ✅"
-          echo "- ADF JSON validated ✅"
+          echo "- Artifact reused from CI"
+          echo "- ADF JSON validated"
           echo "Next (real world): publish ADF ARM templates + env parameters"
-          echo "DEV deployment completed ✅"
+          echo "DEV deployment completed"
 
       - name: Smoke tests (demo)
         run: |
           echo "Running DEV smoke tests..."
-          echo "Smoke tests completed ✅"
+          echo "Smoke tests completed "
 
-      # --- OPTIONAL: Auto-delete feature/* branch after successful DEV deployment ---
+      # Auto-delete feature/* branch after successful DEV deployment (PR-based only)
       - name: Auto-delete feature branch (PR-based only)
         uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const sha  = context.payload.workflow_run.head_sha;
+            const repo  = context.repo.repo;
+            const sha   = context.payload.workflow_run.head_sha;
 
             // Find PR associated with this commit (if any)
             const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
@@ -113,4 +116,4 @@ jobs:
               ref: `heads/${headRef}`
             });
 
-            core.info("Feature branch deleted ✅");
+            core.info("Feature branch deleted ");

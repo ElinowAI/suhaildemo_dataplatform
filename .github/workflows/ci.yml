@@ -14,33 +14,45 @@ on:
 
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   validate-and-build:
     runs-on: ubuntu-latest
 
     steps:
+      # 1 Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2 Context info (for demo traceability)
       - name: Display branch and commit info
         run: |
           echo "Branch: ${{ github.ref }}"
           echo "Commit SHA: ${{ github.sha }}"
 
+      # 3 Validate repo structure
       - name: Validate repository structure
+        shell: bash
         run: |
           REQUIRED_DIRS=("adf" "sql" "powerbi" "infra" "cicd" "docs")
+
           for dir in "${REQUIRED_DIRS[@]}"; do
             if [ ! -d "$dir" ]; then
               echo "Missing required directory: $dir"
               exit 1
             fi
           done
-          echo "Repository structure validated."
 
+          echo "Repository structure validated "
+
+      # 4 Install jq
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
+      # 5 Validate JSON syntax
       - name: Validate JSON files
         shell: bash
         run: |
@@ -48,8 +60,10 @@ jobs:
             echo "Validating $file"
             jq empty "$file" || exit 1
           done
-          echo "All JSON files are valid."
 
+          echo "All JSON files are valid "
+
+      # 6 Basic secret scan (ignores KeyVault references)
       - name: Basic secret scan
         shell: bash
         run: |
@@ -72,17 +86,23 @@ jobs:
             exit 1
           fi
 
-          echo "No hardcoded secrets detected (basic scan)."
+          echo "No hardcoded secrets detected (basic scan) "
 
+      # 7 Create artifact
       - name: Create build artifact
         shell: bash
         run: |
           ARTIFACT_NAME=build_${{ github.sha }}
+
           mkdir -p build_output
           cp -r adf sql powerbi infra cicd docs build_output/
-          zip -r ${ARTIFACT_NAME}.zip build_output
-          echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
 
+          zip -r ${ARTIFACT_NAME}.zip build_output
+
+          echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
+          echo "Artifact prepared: ${ARTIFACT_NAME}.zip "
+
+      # 8 Upload artifact
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
