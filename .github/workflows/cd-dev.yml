@@ -5,51 +5,34 @@ on:
     workflows: ["CI - Data Platform Validation"]
     types: [completed]
 
-
 permissions:
-  contents: write
+  contents: read
   actions: read
-  pull-requests: read
 
 jobs:
   deploy-dev:
-    # Run only when CI succeeds AND the CI run was for env/dev branch
-
-jobs:
-  deploy-dev:
-    # I put here a condition to run only if the CI succeed:
-
+    # Only run when CI succeeded AND CI was triggered on env/dev
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'env/dev'
 
     runs-on: ubuntu-latest
+    environment: dev
 
     steps:
-
       - name: Show workflow context (traceability)
         run: |
           echo "CI Run ID : ${{ github.event.workflow_run.id }}"
           echo "Branch    : ${{ github.event.workflow_run.head_branch }}"
           echo "Commit    : ${{ github.event.workflow_run.head_sha }}"
+          echo "Repo      : ${{ github.repository }}"
 
-      # Download the artifact produced by CI for this exact run/commit
-
-      - name: Show workflow context (for traceability)
-        run: |
-          echo "CI Run ID: ${{ github.event.workflow_run.id }}"
-          echo "Branch:    ${{ github.event.workflow_run.head_branch }}"
-          echo "Commit:    ${{ github.event.workflow_run.head_sha }}"
-
-      # Download the artifact ** CI for this run
-
-      - name: Download CI artifact
+      - name: Download CI artifact (from triggering run)
         uses: actions/download-artifact@v4
         with:
           run-id: ${{ github.event.workflow_run.id }}
           name: build_${{ github.event.workflow_run.head_sha }}
           path: ./artifact
-
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Unzip artifact
@@ -62,19 +45,17 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # --- DEMO DEPLOYMENT GATE: Validate ADF JSON from the CI artifact ---
-      - name: Validate ADF folder exists in the artifact
+      - name: Validate ADF folder exists in artifact
         shell: bash
         run: |
           test -d "./artifact/unzipped/build_output/adf" || (echo "Missing adf/ in artifact build_output" && exit 1)
-          echo "ADF folder found"
+          echo "ADF folder found ✅"
 
-      - name: Validate ADF JSON syntax (demo deploy gate)
+      - name: Validate ADF JSON syntax (deploy gate)
         shell: bash
         run: |
           COUNT=$(find "./artifact/unzipped/build_output/adf" -type f -name "*.json" | wc -l | tr -d ' ')
           echo "ADF JSON files found: $COUNT"
-
           if [ "$COUNT" -eq 0 ]; then
             echo "No ADF JSON found under adf/. Add at least one JSON for the demo."
             exit 1
@@ -85,76 +66,16 @@ jobs:
             jq empty "$file" || exit 1
           done
 
-          echo "ADF JSON validation passed"
+          echo "ADF JSON validation passed ✅"
 
       - name: DEV deployment summary (demo)
         run: |
           echo "Deploying artifact build_${{ github.event.workflow_run.head_sha }} to DEV..."
-          echo "- Artifact reused from CI"
-          echo "- ADF JSON validated"
-          echo "Next (real world): publish ADF ARM templates + env parameters"
-          echo "DEV deployment completed"
+          echo "- Artifact reused from CI ✅"
+          echo "- ADF JSON validated ✅"
+          echo "DEV deployment completed ✅"
 
       - name: Smoke tests (demo)
         run: |
           echo "Running DEV smoke tests..."
-          echo "Smoke tests completed "
-
-      # Auto-delete feature/* branch after successful DEV deployment (PR-based only)
-      - name: Auto-delete feature branch (PR-based only)
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const sha   = context.payload.workflow_run.head_sha;
-
-            // Find PR associated with this commit (if any)
-            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner, repo, commit_sha: sha
-            });
-
-            if (!prs.data.length) {
-              core.info("No PR associated with this commit (direct push to env/dev). Nothing to delete.");
-              return;
-            }
-
-            const pr = prs.data[0];
-            const headRef = pr.head.ref;
-
-            if (!headRef.startsWith("feature/")) {
-              core.info(`Head branch is '${headRef}', not feature/* => skip deletion.`);
-              return;
-            }
-
-            core.info(`Deleting branch heads/${headRef} ...`);
-            await github.rest.git.deleteRef({
-              owner, repo,
-              ref: `heads/${headRef}`
-            });
-
-            core.info("Feature branch deleted ");
-
-
-      - name: Inspect artifact
-        run: |
-          ls -la ./artifact
-          unzip -l ./artifact/build_${{ github.event.workflow_run.head_sha }}.zip | head -n 50
-
-      # Placeholder Of Deployment (For Now Dev )
-      # Ici, plus tard, on branchera les vraies commandes ADF/SQL/PowerBI.
-      - name: Deploy to DEV (placeholder)
-        run: |
-          echo "Deploying commit ${{ github.event.workflow_run.head_sha }} to DEV..."
-          echo "TODO: deploy infra (IaC) for DEV"
-          echo "TODO: deploy ADF templates + dev parameters"
-          echo "TODO: deploy SQL changes to DEV"
-          echo "TODO: deploy Power BI assets to DEV"
-          echo "Deployment to DEV completed (placeholder)."
-
-      - name: Smoke tests (placeholder)
-        run: |
-          echo "Running DEV smoke tests..."
-          echo "TODO: run a minimal pipeline / connectivity checks"
-          echo "Smoke tests completed (placeholder)."
-
+          echo "Smoke tests completed ✅"
