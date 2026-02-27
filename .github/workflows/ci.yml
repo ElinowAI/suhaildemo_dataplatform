@@ -1,0 +1,100 @@
+name: CI - Data Platform Validation
+
+on:
+  pull_request:
+    branches:
+      - env/dev
+      - env/test
+      - env/uat
+      - main
+
+  # Allows manual execution if needed
+  workflow_dispatch:
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      # We always start by pulling the latest code from the PR branch.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Display branch and commit info
+      # This helps during troubleshooting and log analysis.
+      - name: Display branch and commit info
+        run: |
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit SHA: ${{ github.sha }}"
+
+      # Step 3: Validate repository structure
+      # If someone accidentally removes a core directory,
+      # the pipeline should stop immediately.
+      - name: Validate repository structure
+        run: |
+          REQUIRED_DIRS=("adf" "sql" "powerbi" "infra" "cicd" "docs")
+          for dir in "${REQUIRED_DIRS[@]}"; do
+            if [ ! -d "$dir" ]; then
+              echo "Missing required directory: $dir"
+              exit 1
+            fi
+          done
+          echo "Repository structure validated."
+
+      # Step 4: Validate JSON files
+      # Since many data assets (ADF, templates, configs) are JSON-based,
+      # we make sure none of them are malformed.
+      - name: Validate JSON files
+        run: |
+          find . -type f -name "*.json" -print0 | while IFS= read -r -d '' file; do
+            echo "Validating $file"
+            jq empty "$file" || exit 1
+          done
+          echo "All JSON files are valid."
+        shell: bash
+
+      # Step 5: Basic secret scan
+      # Prevention of hardcoded secrets.
+      # We scan only source/config files (not docs/workflows) to avoid false positives.
+        # This is a lightweight guardrail, not a full secret-scanning solution.
+      - name: Basic secret scan
+        run: |
+          MATCHES=$(grep -RIn \
+            --exclude-dir=.git \
+            --exclude-dir=.github \
+            --exclude=README.md \
+            --include="*.json" \
+            --include="*.yml" \
+            --include="*.yaml" \
+            --include="*.sql" \
+            --include="*.ps1" \
+            -E "(password\s*=|secret\s*=|api[_-]?key\s*=|connection(string)?\s*=)" . || true)
+
+          if [ -n "$MATCHES" ]; then
+            echo "Potential hardcoded secret detected:"
+            echo "$MATCHES"
+            exit 1
+          fi
+
+          echo "No hardcoded secrets detected (basic scan)."
+
+      # Step 6: Create build artifact
+      # We package everything that will later be deployed.
+      # This ensures deployments are based on a validated build.
+      - name: Create build artifact
+        run: |
+          ARTIFACT_NAME=build_${{ github.sha }}
+          mkdir build_output
+          cp -r adf sql powerbi infra cicd docs build_output/
+          zip -r ${ARTIFACT_NAME}.zip build_output
+          echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
+
+      # Step 7: Upload artifact
+      # The artifact will be reused by CD pipelines
+      # and can also support rollback scenarios.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_NAME }}.zip
