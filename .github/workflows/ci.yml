@@ -14,9 +14,10 @@ on:
 
   workflow_dispatch:
 
+# Least-privilege: CI only needs to read repo + interact with artifacts
 permissions:
   contents: read
-  actions: write
+  actions: read
 
 jobs:
   validate-and-build:
@@ -46,7 +47,7 @@ jobs:
             fi
           done
 
-          echo "Repository structure validated "
+          echo "Repository structure validated ✅"
 
       # 4 Install jq
       - name: Install jq
@@ -61,7 +62,7 @@ jobs:
             jq empty "$file" || exit 1
           done
 
-          echo "All JSON files are valid "
+          echo "All JSON files are valid ✅"
 
       # 6 Basic secret scan (ignores KeyVault references)
       - name: Basic secret scan
@@ -86,7 +87,7 @@ jobs:
             exit 1
           fi
 
-          echo "No hardcoded secrets detected (basic scan) "
+          echo "No hardcoded secrets detected (basic scan) ✅"
 
       # 7 Create artifact
       - name: Create build artifact
@@ -100,7 +101,7 @@ jobs:
           zip -r ${ARTIFACT_NAME}.zip build_output
 
           echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
-          echo "Artifact prepared: ${ARTIFACT_NAME}.zip "
+          echo "Artifact prepared: ${ARTIFACT_NAME}.zip ✅"
 
       # 8 Upload artifact
       - name: Upload build artifact
@@ -108,3 +109,4 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACT_NAME }}.zip
+          retention-days: 7

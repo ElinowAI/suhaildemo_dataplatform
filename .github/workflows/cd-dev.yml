@@ -5,35 +5,37 @@ on:
     workflows: ["CI - Data Platform Validation"]
     types: [completed]
 
+# Needed to read artifacts from another workflow run
 permissions:
-  contents: write
   actions: read
-  pull-requests: read
+  contents: read
 
 jobs:
   deploy-dev:
-    # Run only when CI succeeds AND the CI run was for env/dev branch
+    name: Deploy DEV (from CI artifact)
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'env/dev'
 
     runs-on: ubuntu-latest
+    environment: dev
 
     steps:
-      - name: Show workflow context (traceability)
+      - name: Show workflow_run context (traceability)
         run: |
           echo "CI Run ID : ${{ github.event.workflow_run.id }}"
+          echo "Repo      : ${{ github.event.workflow_run.repository.full_name }}"
           echo "Branch    : ${{ github.event.workflow_run.head_branch }}"
           echo "Commit    : ${{ github.event.workflow_run.head_sha }}"
 
-      # Download the artifact produced by CI for this exact run/commit
-      - name: Download CI artifact
+      - name: Download CI artifact (same run-id)
         uses: actions/download-artifact@v4
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
+          repository: ${{ github.event.workflow_run.repository.full_name }}
           name: build_${{ github.event.workflow_run.head_sha }}
           path: ./artifact
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Unzip artifact
         shell: bash
@@ -45,14 +47,13 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # --- DEMO DEPLOYMENT GATE: Validate ADF JSON from the CI artifact ---
-      - name: Validate ADF folder exists in the artifact
+      - name: Validate ADF folder exists in artifact
         shell: bash
         run: |
           test -d "./artifact/unzipped/build_output/adf" || (echo "Missing adf/ in artifact build_output" && exit 1)
-          echo "ADF folder found"
+          echo "ADF folder found ✅"
 
-      - name: Validate ADF JSON syntax (demo deploy gate)
+      - name: Validate ADF JSON syntax (deploy gate)
         shell: bash
         run: |
           COUNT=$(find "./artifact/unzipped/build_output/adf" -type f -name "*.json" | wc -l | tr -d ' ')
@@ -68,52 +69,17 @@ jobs:
             jq empty "$file" || exit 1
           done
 
-          echo "ADF JSON validation passed"
+          echo "ADF JSON validation passed ✅"
 
       - name: DEV deployment summary (demo)
         run: |
           echo "Deploying artifact build_${{ github.event.workflow_run.head_sha }} to DEV..."
-          echo "- Artifact reused from CI"
-          echo "- ADF JSON validated"
+          echo "- Artifact reused from CI ✅"
+          echo "- ADF JSON validated ✅"
           echo "Next (real world): publish ADF ARM templates + env parameters"
-          echo "DEV deployment completed"
+          echo "DEV deployment completed ✅"
 
       - name: Smoke tests (demo)
         run: |
           echo "Running DEV smoke tests..."
-          echo "Smoke tests completed "
-
-      # Auto-delete feature/* branch after successful DEV deployment (PR-based only)
-      - name: Auto-delete feature branch (PR-based only)
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const sha   = context.payload.workflow_run.head_sha;
-
-            // Find PR associated with this commit (if any)
-            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner, repo, commit_sha: sha
-            });
-
-            if (!prs.data.length) {
-              core.info("No PR associated with this commit (direct push to env/dev). Nothing to delete.");
-              return;
-            }
-
-            const pr = prs.data[0];
-            const headRef = pr.head.ref;
-
-            if (!headRef.startsWith("feature/")) {
-              core.info(`Head branch is '${headRef}', not feature/* => skip deletion.`);
-              return;
-            }
-
-            core.info(`Deleting branch heads/${headRef} ...`);
-            await github.rest.git.deleteRef({
-              owner, repo,
-              ref: `heads/${headRef}`
-            });
-
-            core.info("Feature branch deleted ");
+          echo "Smoke tests completed ✅"
