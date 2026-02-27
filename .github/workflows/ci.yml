@@ -1,6 +1,9 @@
 name: CI - Data Platform Validation
 
 on:
+  push:
+  branches:
+      - env/dev
   pull_request:
     branches:
       - env/dev
@@ -22,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       # Step 2: Display branch and commit info
-      # This helps during troubleshooting and log analysis.
+      # Comment Y: Fot troubleshooting and log analysis.
       - name: Display branch and commit info
         run: |
           echo "Branch: ${{ github.ref }}"

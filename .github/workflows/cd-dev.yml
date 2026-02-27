@@ -1,0 +1,52 @@
+name: CD - Deploy to DEV
+
+on:
+  workflow_run:
+    workflows: ["CI - Data Platform Validation"]
+    types: [completed]
+
+jobs:
+  deploy-dev:
+    # I put here a condition to run only if the CI succeed:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'env/dev'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Show workflow context (for traceability)
+        run: |
+          echo "CI Run ID: ${{ github.event.workflow_run.id }}"
+          echo "Branch:    ${{ github.event.workflow_run.head_branch }}"
+          echo "Commit:    ${{ github.event.workflow_run.head_sha }}"
+
+      # Download the artifact ** CI for this run
+      - name: Download CI artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          name: build_${{ github.event.workflow_run.head_sha }}
+          path: ./artifact
+
+      - name: Inspect artifact
+        run: |
+          ls -la ./artifact
+          unzip -l ./artifact/build_${{ github.event.workflow_run.head_sha }}.zip | head -n 50
+
+      # Placeholder Of Deployment (For Now Dev )
+      # Ici, plus tard, on branchera les vraies commandes ADF/SQL/PowerBI.
+      - name: Deploy to DEV (placeholder)
+        run: |
+          echo "Deploying commit ${{ github.event.workflow_run.head_sha }} to DEV..."
+          echo "TODO: deploy infra (IaC) for DEV"
+          echo "TODO: deploy ADF templates + dev parameters"
+          echo "TODO: deploy SQL changes to DEV"
+          echo "TODO: deploy Power BI assets to DEV"
+          echo "Deployment to DEV completed (placeholder)."
+
+      - name: Smoke tests (placeholder)
+        run: |
+          echo "Running DEV smoke tests..."
+          echo "TODO: run a minimal pipeline / connectivity checks"
+          echo "Smoke tests completed (placeholder)."
