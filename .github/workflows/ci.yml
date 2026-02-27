@@ -1,0 +1,90 @@
+name: CI - Data Platform Validation
+
+on:
+  pull_request:
+    branches:
+      - env/dev
+      - env/test
+      - env/uat
+      - main
+
+  push:
+    branches:
+      - env/dev
+
+  workflow_dispatch:
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Display branch and commit info
+        run: |
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit SHA: ${{ github.sha }}"
+
+      - name: Validate repository structure
+        run: |
+          REQUIRED_DIRS=("adf" "sql" "powerbi" "infra" "cicd" "docs")
+          for dir in "${REQUIRED_DIRS[@]}"; do
+            if [ ! -d "$dir" ]; then
+              echo "Missing required directory: $dir"
+              exit 1
+            fi
+          done
+          echo "Repository structure validated."
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Validate JSON files
+        shell: bash
+        run: |
+          find . -type f -name "*.json" -print0 | while IFS= read -r -d '' file; do
+            echo "Validating $file"
+            jq empty "$file" || exit 1
+          done
+          echo "All JSON files are valid."
+
+      - name: Basic secret scan
+        shell: bash
+        run: |
+          MATCHES=$(grep -RIn \
+            --exclude-dir=.git \
+            --exclude-dir=.github \
+            --exclude=README.md \
+            --include="*.json" \
+            --include="*.yml" \
+            --include="*.yaml" \
+            --include="*.sql" \
+            --include="*.ps1" \
+            -E "(password\s*=|secret\s*=|api[_-]?key\s*=|connection(string)?\s*=)" . \
+            | grep -v "@Microsoft.KeyVault(" \
+            || true)
+
+          if [ -n "$MATCHES" ]; then
+            echo "Potential hardcoded secret detected:"
+            echo "$MATCHES"
+            exit 1
+          fi
+
+          echo "No hardcoded secrets detected (basic scan)."
+
+      - name: Create build artifact
+        shell: bash
+        run: |
+          ARTIFACT_NAME=build_${{ github.sha }}
+          mkdir -p build_output
+          cp -r adf sql powerbi infra cicd docs build_output/
+          zip -r ${ARTIFACT_NAME}.zip build_output
+          echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_NAME }}.zip
