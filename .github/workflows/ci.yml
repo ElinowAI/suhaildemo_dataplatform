@@ -1,4 +1,4 @@
-name: CI - Data Platform Validation
+name: CI - Data Platform
 
 on:
   pull_request:
