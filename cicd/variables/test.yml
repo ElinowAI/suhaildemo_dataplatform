@@ -1,0 +1,12 @@
+# Environment variables - TEST
+environment: test
+azure_subscription_id: "00000000-0000-0000-0000-000000000001"
+azure_resource_group: "rg-dataplatform-test"
+adf_instance_name: "adf-dataplatform-test"
+storage_account_name: "stadataplatformtest"
+storage_container_source: "source-test"
+storage_container_sink: "sink-test"
+sql_server: "sql-dataplatform-test.database.windows.net"
+sql_database: "db-dataplatform-test"
+powerbi_workspace_id: "00000000-0000-0000-0000-000000000001"
+log_level: "INFO"

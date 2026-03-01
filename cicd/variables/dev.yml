@@ -1,0 +1,12 @@
+# Environment variables - DEV
+environment: dev
+azure_subscription_id: "00000000-0000-0000-0000-000000000000"
+azure_resource_group: "rg-dataplatform-dev"
+adf_instance_name: "adf-dataplatform-dev"
+storage_account_name: "stadataplatformdev"
+storage_container_source: "source-dev"
+storage_container_sink: "sink-dev"
+sql_server: "sql-dataplatform-dev.database.windows.net"
+sql_database: "db-dataplatform-dev"
+powerbi_workspace_id: "00000000-0000-0000-0000-000000000000"
+log_level: "DEBUG"
