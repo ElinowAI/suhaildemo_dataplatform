@@ -1,0 +1,22 @@
+version: 2
+models:
+  - name: raw_sales_transactions
+    description: Raw ingestion table populated by ADF pl_demo_copy pipeline.
+    columns:
+      - name: transaction_id
+        tests: [unique, not_null]
+      - name: transaction_date
+        tests: [not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: total_amount
+        tests: [not_null]
+  - name: silver_sales_daily_summary
+    description: Daily aggregated sales per customer. Source for Power BI.
+    columns:
+      - name: summary_date
+        tests: [not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: total_revenue
+        tests: [not_null]

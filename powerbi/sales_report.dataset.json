@@ -1,0 +1,30 @@
+{
+  "name": "sales_daily_report",
+  "description": "Daily sales summary - source: silver.sales_daily_summary",
+  "version": "1.0.0",
+  "dataSource": {
+    "type": "AzureSQLDatabase",
+    "server": "${sql_server}",
+    "database": "${sql_database}",
+    "schema": "silver",
+    "table": "sales_daily_summary",
+    "credentialType": "ServicePrincipal",
+    "secretReference": "@Microsoft.KeyVault(SecretUri=https://kv-dataplatform.vault.azure.net/secrets/powerbi-sp-secret)"
+  },
+  "tables": [{
+    "name": "sales_daily_summary",
+    "columns": [
+      { "name": "summary_date",       "dataType": "DateTime" },
+      { "name": "customer_id",        "dataType": "String"   },
+      { "name": "total_transactions", "dataType": "Int64"    },
+      { "name": "total_revenue",      "dataType": "Decimal"  },
+      { "name": "avg_order_value",    "dataType": "Decimal"  },
+      { "name": "currency",           "dataType": "String"   }
+    ],
+    "measures": [
+      { "name": "Total Revenue",   "expression": "SUM(sales_daily_summary[total_revenue])",     "formatString": "#,##0.00" },
+      { "name": "Avg Order Value", "expression": "AVERAGE(sales_daily_summary[avg_order_value])", "formatString": "#,##0.00" }
+    ]
+  }],
+  "refreshPolicy": { "type": "scheduled", "frequency": "daily", "triggeredBy": "adf_pipeline_completion" }
+}
